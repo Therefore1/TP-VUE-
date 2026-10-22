@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Catalogue de livres - TP1</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 10px; }
+    .boutons { margin-bottom: 15px; }
+    button { padding: 6px 10px; margin-right: 6px; cursor: pointer; }
+    .catalogue { display: flex; flex-wrap: wrap; gap: 10px; }
+    .book { border: 1px solid #ccc; border-radius: 6px; padding: 10px; width: 220px; }
+    /* 4. classe favori */
+    .favori { border: 2px solid #e0b400; background: #fff8d6; }
+    .badge-favori { background: #e0b400; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <h1>Catalogue de livres</h1>
+
+  <!-- 5. Compteur de favoris -->
+  <p><strong>{{ nombreFavoris }}</strong> livre(s) favori(s)</p>
+
+  <div class="boutons">
+    <!-- 6. Filtre favoris -->
+    <button @click="afficherFavorisSeulement = !afficherFavorisSeulement">
+      {{ afficherFavorisSeulement ? 'Afficher tous les livres' : 'Afficher uniquement les favoris' }}
+    </button>
+    <!-- Bonus : tri par année -->
+    <button @click="triParAnnee = !triParAnnee">
+      {{ triParAnnee ? 'Ordre initial' : 'Trier par année (récent d\'abord)' }}
+    </button>
+  </div>
+
+  <div class="catalogue">
+    <!-- 1 + 4 : v-for avec :key="book.id" et classe dynamique (on garde "book") -->
+    <div class="book" :class="{ favori: book.isFav }"
+         v-for="book in livresAffiches" :key="book.id">
+      <h3>{{ book.title }}</h3>
+      <p>{{ book.author }} ({{ book.year }})</p>
+
+      <!-- 3. Badge favori avec v-if -->
+      <span class="badge-favori" v-if="book.isFav">Favori</span>
+
+      <!-- 2. Détails avec v-show -->
+      <p>
+        <button @click="book.afficherDetails = !book.afficherDetails">Détails</button>
+      </p>
+      <p v-show="book.afficherDetails">Genre : {{ book.genre }}</p>
+    </div>
+  </div>
+</div>
+
+<script>
+Vue.createApp({
+  data() {
+    return {
+      afficherFavorisSeulement: false,
+      triParAnnee: false,
+      books: [
+        { id: 1, title: 'Le Petit Prince', author: 'Antoine de Saint-Exupéry', year: 1943, genre: 'Conte', isFav: true, afficherDetails: false },
+        { id: 2, title: 'Dune', author: 'Frank Herbert', year: 1965, genre: 'Science-fiction', isFav: false, afficherDetails: false },
+        { id: 3, title: 'Clean Code', author: 'Robert C. Martin', year: 2008, genre: 'Informatique', isFav: true, afficherDetails: false },
+        { id: 4, title: 'L\'Étranger', author: 'Albert Camus', year: 1942, genre: 'Roman', isFav: false, afficherDetails: false },
+        { id: 5, title: 'Le Seigneur des anneaux', author: 'J.R.R. Tolkien', year: 1954, genre: 'Fantasy', isFav: true, afficherDetails: false },
+        { id: 6, title: 'Sapiens', author: 'Yuval Noah Harari', year: 2011, genre: 'Histoire', isFav: false, afficherDetails: false }
+      ]
+    };
+  },
+  computed: {
+    // 5. nombre de favoris
+    nombreFavoris() {
+      return this.books.filter(b => b.isFav).length;
+    },
+    // Bonus : copie triée du plus récent au plus ancien (this.books n'est pas modifié)
+    booksTriesParAnnee() {
+      return [...this.books].sort((a, b) => b.year - a.year);
+    },
+    // 6. alternative à v-if + v-for : on filtre dans une computed, et le v-for boucle dessus
+    livresAffiches() {
+      const source = this.triParAnnee ? this.booksTriesParAnnee : this.books;
+      if (this.afficherFavorisSeulement) {
+        return source.filter(b => b.isFav);
+      }
+      return source;
+    }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
