@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Tableau de bord de notes</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; padding: 0 10px; }
+    form, .recherche { display: flex; gap: 6px; margin-bottom: 15px; flex-wrap: wrap; }
+    input, button { padding: 6px; }
+    .resume { background: #f1f1f1; padding: 8px; margin-bottom: 15px; }
+    .mention { padding: 6px 10px; border-radius: 4px; display: inline-block; font-weight: bold; }
+    .tres-bien { background: #c3e6cb; color: #155724; }
+    .bien { background: #d4edda; color: #155724; }
+    .assez-bien { background: #d1ecf1; color: #0c5460; }
+    .passable { background: #fff3cd; color: #856404; }
+    .insuffisant { background: #f8d7da; color: #721c24; }
+    .module { border-bottom: 1px solid #ddd; padding: 8px 0; }
+    .ligne { display: flex; justify-content: space-between; align-items: center; }
+    .detail { background: #f9f9f9; padding: 6px; margin-top: 6px; font-size: 14px; }
+    .rattrapage { color: #721c24; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <h1>Tableau de bord de notes</h1>
+
+  <!-- Résumé -->
+  <div class="resume">
+    <p>Moyenne générale : <strong>{{ moyenneGenerale }} / 20</strong></p>
+
+    <!-- 2. Mention : chaîne à 5 branches (éléments adjacents) -->
+    <span v-if="moyenneGenerale >= 16" class="mention tres-bien">Très bien</span>
+    <span v-else-if="moyenneGenerale >= 14" class="mention bien">Bien</span>
+    <span v-else-if="moyenneGenerale >= 12" class="mention assez-bien">Assez bien</span>
+    <span v-else-if="moyenneGenerale >= 10" class="mention passable">Passable</span>
+    <span v-else class="mention insuffisant">Insuffisant</span>
+
+    <!-- 5. Meilleur et moins bon module -->
+    <p v-if="moduleMax">Meilleur module : <strong>{{ moduleMax.nom }}</strong> ({{ moduleMax.note }})</p>
+    <p v-if="moduleMin">Moins bon module : <strong>{{ moduleMin.nom }}</strong> ({{ moduleMin.note }})</p>
+  </div>
+
+  <!-- 3. Modules à rattraper -->
+  <div class="resume rattrapage">
+    <strong>À rattraper :</strong>
+    <span v-if="modulesARattraper.length > 0">
+      <span v-for="m in modulesARattraper" :key="m.id">{{ m.nom }} ({{ m.note }}) </span>
+    </span>
+    <span v-else>Aucun module à rattraper.</span>
+  </div>
+
+  <!-- 6. Ajout -->
+  <form @submit.prevent="ajouterModule">
+    <input type="text" v-model="nouveauModule.nom" placeholder="Nom du module">
+    <input type="number" v-model="nouveauModule.note" placeholder="Note /20" min="0" max="20" step="0.25">
+    <input type="number" v-model="nouveauModule.coefficient" placeholder="Coefficient" min="1">
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <!-- 4. Recherche -->
+  <div class="recherche">
+    <input type="text" v-model="recherche" placeholder="Rechercher un module...">
+  </div>
+
+  <!-- Liste (classée et filtrée) -->
+  <div v-if="modulesAffiches.length > 0">
+    <div class="module" v-for="m in modulesAffiches" :key="m.id">
+      <div class="ligne">
+        <span><strong>{{ m.nom }}</strong></span>
+        <span>Note : {{ m.note }} / 20 (coef {{ m.coefficient }})</span>
+        <span>
+          <button @click="toggleDetail(m)">Détail</button>
+          <button @click="supprimerModule(m)">X</button>
+        </span>
+      </div>
+      <div class="detail" v-show="moduleOuvert === m.id">
+        Points pondérés : {{ m.note * m.coefficient }}
+      </div>
+    </div>
+  </div>
+  <p v-else>Aucun module trouvé.</p>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      recherche: '',
+      moduleOuvert: null,
+      prochainId: 6,
+      nouveauModule: { nom: '', note: '', coefficient: '' },
+      modules: [
+        { id: 1, nom: 'Algorithmique', note: 15, coefficient: 3 },
+        { id: 2, nom: 'Bases de données', note: 12.5, coefficient: 3 },
+        { id: 3, nom: 'Réseaux', note: 8, coefficient: 2 },
+        { id: 4, nom: 'Mathématiques', note: 17, coefficient: 4 },
+        { id: 5, nom: 'Anglais', note: 9.5, coefficient: 1 }
+      ]
+    };
+  },
+  computed: {
+    // 1. moyenne pondérée : deux reduce avec valeur initiale 0
+    moyenneGenerale() {
+      const sommeNotes = this.modules.reduce((acc, m) => acc + m.note * m.coefficient, 0);
+      const sommeCoefs = this.modules.reduce((acc, m) => acc + m.coefficient, 0);
+      if (sommeCoefs === 0) {
+        return 0;
+      }
+      return Number((sommeNotes / sommeCoefs).toFixed(2));
+    },
+    // 3. notes strictement inférieures à 10
+    modulesARattraper() {
+      return this.modules.filter(m => m.note < 10);
+    },
+    // 4. copie triée (b - a = décroissant), on ne modifie pas this.modules
+    modulesTries() {
+      return [...this.modules].sort((a, b) => b.note - a.note);
+    },
+    modulesAffiches() {
+      return this.modulesTries.filter(m =>
+        m.nom.toLowerCase().includes(this.recherche.toLowerCase())
+      );
+    },
+    // 5. basés sur modulesTries (pas sur modulesAffiches), liste vide gérée
+    moduleMax() {
+      if (this.modulesTries.length === 0) {
+        return null;
+      }
+      return this.modulesTries[0];
+    },
+    moduleMin() {
+      if (this.modulesTries.length === 0) {
+        return null;
+      }
+      return this.modulesTries[this.modulesTries.length - 1];
+    }
+  },
+  methods: {
+    toggleDetail(module) {
+      if (this.moduleOuvert === module.id) {
+        this.moduleOuvert = null;
+      } else {
+        this.moduleOuvert = module.id;
+      }
+    },
+    supprimerModule(module) {
+      this.modules = this.modules.filter(m => m.id !== module.id);
+    },
+    ajouterModule() {
+      if (this.nouveauModule.nom === '' || this.nouveauModule.note === '' || this.nouveauModule.coefficient <= 0) {
+        return;
+      }
+      this.modules.push({
+        id: this.prochainId++,
+        nom: this.nouveauModule.nom,
+        note: Number(this.nouveauModule.note),
+        coefficient: Number(this.nouveauModule.coefficient)
+      });
+      this.nouveauModule.nom = '';
+      this.nouveauModule.note = '';
+      this.nouveauModule.coefficient = '';
+    }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

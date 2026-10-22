@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Catalogue de livres</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 10px; }
+    form { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+    input, select, button { padding: 6px; }
+    .catalogue { display: flex; flex-wrap: wrap; gap: 10px; }
+    .book { border: 1px solid #ccc; border-radius: 6px; padding: 10px; width: 220px; cursor: pointer; }
+    .book.fav { background: #fff8d6; border-color: #e0b400; }
+    .chip { display: inline-block; background: #e1ecf7; border-radius: 12px; padding: 2px 8px; margin: 2px; font-size: 13px; }
+    .chip button { border: none; background: none; cursor: pointer; padding: 0 2px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <h1>Catalogue de livres</h1>
+
+  <!-- 1. Formulaire d'ajout -->
+  <form @submit.prevent="ajouterLivre">
+    <input type="text" v-model.trim="newBook.title" placeholder="Titre">
+    <input type="text" v-model.lazy="newBook.author" placeholder="Auteur">
+    <input type="number" v-model.number="newBook.year" placeholder="Année">
+    <select v-model="newBook.genre">
+      <option value="Roman">Roman</option>
+      <option value="Science-fiction">Science-fiction</option>
+      <option value="Policier">Policier</option>
+      <option value="Informatique">Informatique</option>
+    </select>
+    <label><input type="checkbox" v-model="newBook.isFav"> Favori</label>
+
+    <!-- 5. Mots-clés au clavier -->
+    <input type="text" v-model="nouveauMotCle" placeholder="Mot-clé + Entrée"
+           @keyup.enter="ajouterMotCle">
+
+    <!-- 2. Bouton désactivé tant que le formulaire n'est pas valide -->
+    <button type="submit" :disabled="!formulaireValide">Ajouter</button>
+  </form>
+
+  <!-- Chips des mots-clés du livre en cours d'ajout -->
+  <div v-if="newBook.keywords.length > 0" style="margin-bottom: 15px;">
+    <span class="chip" v-for="mot in newBook.keywords" :key="mot">
+      {{ mot }}
+      <button type="button" @click="retirerMotCle(mot)">×</button>
+    </span>
+  </div>
+
+  <!-- Catalogue -->
+  <div class="catalogue">
+    <!-- 4. clic sur la carte = favori -->
+    <div class="book" :class="{ fav: book.isFav }"
+         v-for="book in books" :key="book.id"
+         @click="toggleFavori(book)">
+      <h3>{{ book.title }} <span v-if="book.isFav">★</span></h3>
+      <p>{{ book.author }} ({{ book.year }})</p>
+      <p>Genre : {{ book.genre }}</p>
+      <div>
+        <span class="chip" v-for="mot in book.keywords" :key="mot">{{ mot }}</span>
+      </div>
+      <!-- 3. .stop empêche le clic de remonter à la carte -->
+      <button type="button" @click.stop="supprimerLivre(book)">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      prochainId: 4,
+      nouveauMotCle: '',
+      newBook: {
+        title: '',
+        author: '',
+        year: 2024,
+        genre: 'Roman',
+        isFav: false,
+        keywords: []
+      },
+      books: [
+        { id: 1, title: 'Le Petit Prince', author: 'Antoine de Saint-Exupéry', year: 1943,
+          genre: 'Roman', isFav: true, keywords: ['conte', 'enfance'] },
+        { id: 2, title: 'Dune', author: 'Frank Herbert', year: 1965,
+          genre: 'Science-fiction', isFav: false, keywords: ['désert', 'politique'] },
+        { id: 3, title: 'Clean Code', author: 'Robert C. Martin', year: 2008,
+          genre: 'Informatique', isFav: false, keywords: ['code', 'qualité'] }
+      ]
+    };
+  },
+  computed: {
+    // 2. valide seulement si titre et auteur ne sont pas vides
+    formulaireValide() {
+      return this.newBook.title !== '' && this.newBook.author !== '';
+    }
+  },
+  methods: {
+    // 1. on pousse une copie de newBook avec un nouvel id, puis on réinitialise
+    ajouterLivre() {
+      if (!this.formulaireValide) {
+        return;
+      }
+      this.books.push({
+        ...this.newBook,
+        id: this.prochainId++,
+        keywords: [...this.newBook.keywords]
+      });
+      this.newBook = {
+        title: '',
+        author: '',
+        year: 2024,
+        genre: 'Roman',
+        isFav: false,
+        keywords: []
+      };
+    },
+    // 3. on compare les id, pas les objets
+    supprimerLivre(book) {
+      this.books = this.books.filter(b => b.id !== book.id);
+    },
+    // 4. inverser le favori
+    toggleFavori(book) {
+      book.isFav = !book.isFav;
+    },
+    // 5. mots-clés sans doublon
+    ajouterMotCle() {
+      const mot = this.nouveauMotCle.trim();
+      if (mot !== '' && !this.newBook.keywords.includes(mot)) {
+        this.newBook.keywords.push(mot);
+      }
+      this.nouveauMotCle = '';
+    },
+    retirerMotCle(mot) {
+      this.newBook.keywords = this.newBook.keywords.filter(k => k !== mot);
+    }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

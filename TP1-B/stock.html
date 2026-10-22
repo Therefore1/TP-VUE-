@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock de l'association</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; padding: 0 10px; }
+    form, .recherche { display: flex; gap: 6px; margin-bottom: 15px; flex-wrap: wrap; }
+    input, select, button { padding: 6px; }
+    .resume { background: #f1f1f1; padding: 8px; margin-bottom: 15px; }
+    .article { border-bottom: 1px solid #ddd; padding: 8px 0; }
+    .ligne { display: flex; justify-content: space-between; align-items: center; }
+    .badge { padding: 2px 8px; border-radius: 4px; font-size: 13px; }
+    .rupture { background: #f8d7da; color: #721c24; }
+    .faible { background: #fff3cd; color: #856404; }
+    .ok { background: #d4edda; color: #155724; }
+    .detail { background: #f9f9f9; padding: 6px; margin-top: 6px; font-size: 14px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <h1>Stock de la buvette</h1>
+
+  <!-- 2. Résumé global -->
+  <div class="resume">
+    <p>Valeur totale du stock : <strong>{{ valeurTotaleStock }} DH</strong></p>
+    <p>Articles en rupture : <strong>{{ nombreRupture }}</strong></p>
+  </div>
+
+  <!-- 1. Recherche et filtre -->
+  <div class="recherche">
+    <input type="text" v-model="rechercheTexte" placeholder="Rechercher un article...">
+    <select v-model="filtreCategorie">
+      <option value="toutes">Toutes les catégories</option>
+      <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+    </select>
+  </div>
+
+  <!-- 5. Ajout d'un article -->
+  <form @submit.prevent="ajouterArticle">
+    <input type="text" v-model="nouvelArticle.nom" placeholder="Nom">
+    <input type="number" v-model="nouvelArticle.quantite" placeholder="Quantité">
+    <input type="number" v-model="nouvelArticle.prixUnitaire" placeholder="Prix (DH)">
+    <input type="number" v-model="nouvelArticle.seuilAlerte" placeholder="Seuil">
+    <select v-model="nouvelArticle.categorie">
+      <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+    </select>
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <!-- Liste des articles -->
+  <div v-if="articlesFiltres.length > 0">
+    <div class="article" v-for="a in articlesFiltres" :key="a.id">
+      <div class="ligne">
+        <span>
+          <strong>{{ a.nom }}</strong> ({{ a.categorie }}) - {{ a.prixUnitaire }} DH
+        </span>
+
+        <!-- 3. Trois états : le cas le plus spécifique (0) en premier -->
+        <span v-if="a.quantite === 0" class="badge rupture">Rupture</span>
+        <span v-else-if="a.quantite <= a.seuilAlerte" class="badge faible">Stock faible</span>
+        <span v-else class="badge ok">Ok</span>
+
+        <!-- 4. Quantités -->
+        <span>
+          <button @click="decrementer(a)">-</button>
+          {{ a.quantite }}
+          <button @click="incrementer(a)">+</button>
+        </span>
+
+        <span>
+          <button @click="toggleDetail(a)">Détail</button>
+          <button @click="supprimerArticle(a)">X</button>
+        </span>
+      </div>
+
+      <div class="detail" v-show="articleOuvert === a.id">
+        Seuil d'alerte : {{ a.seuilAlerte }} |
+        Valeur en stock : {{ a.quantite * a.prixUnitaire }} DH
+      </div>
+    </div>
+  </div>
+  <p v-else>Aucun article trouvé.</p>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      rechercheTexte: '',
+      filtreCategorie: 'toutes',
+      categories: ['Boissons', 'Snacks', 'Fournitures'],
+      articleOuvert: null,
+      prochainId: 5,
+      nouvelArticle: { nom: '', quantite: '', prixUnitaire: '', seuilAlerte: '', categorie: 'Boissons' },
+      articles: [
+        { id: 1, nom: 'Eau minérale', quantite: 40, prixUnitaire: 3, seuilAlerte: 10, categorie: 'Boissons' },
+        { id: 2, nom: 'Jus d\'orange', quantite: 5, prixUnitaire: 6, seuilAlerte: 8, categorie: 'Boissons' },
+        { id: 3, nom: 'Chips', quantite: 0, prixUnitaire: 5, seuilAlerte: 10, categorie: 'Snacks' },
+        { id: 4, nom: 'Gobelets', quantite: 100, prixUnitaire: 1, seuilAlerte: 20, categorie: 'Fournitures' }
+      ]
+    };
+  },
+  computed: {
+    // un article est gardé seulement s'il respecte les deux critères
+    articlesFiltres() {
+      return this.articles.filter(a => {
+        const matchTexte = a.nom.toLowerCase().includes(this.rechercheTexte.toLowerCase());
+        const matchCategorie = this.filtreCategorie === 'toutes' || a.categorie === this.filtreCategorie;
+        return matchTexte && matchCategorie;
+      });
+    },
+    // sur tout le stock, pas sur articlesFiltres
+    valeurTotaleStock() {
+      return this.articles.reduce((somme, a) => somme + a.quantite * a.prixUnitaire, 0);
+    },
+    nombreRupture() {
+      return this.articles.filter(a => a.quantite === 0).length;
+    }
+  },
+  methods: {
+    incrementer(article) {
+      article.quantite++;
+    },
+    decrementer(article) {
+      if (article.quantite > 0) {
+        article.quantite--;
+      }
+    },
+    toggleDetail(article) {
+      if (this.articleOuvert === article.id) {
+        this.articleOuvert = null;
+      } else {
+        this.articleOuvert = article.id;
+      }
+    },
+    supprimerArticle(article) {
+      this.articles = this.articles.filter(a => a.id !== article.id);
+    },
+    ajouterArticle() {
+      if (this.nouvelArticle.nom === '') {
+        return;
+      }
+      this.articles.push({
+        id: this.prochainId++,
+        nom: this.nouvelArticle.nom,
+        quantite: Number(this.nouvelArticle.quantite),
+        prixUnitaire: Number(this.nouvelArticle.prixUnitaire),
+        seuilAlerte: Number(this.nouvelArticle.seuilAlerte),
+        categorie: this.nouvelArticle.categorie
+      });
+      this.nouvelArticle.nom = '';
+      this.nouvelArticle.quantite = '';
+      this.nouvelArticle.prixUnitaire = '';
+      this.nouvelArticle.seuilAlerte = '';
+    }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
